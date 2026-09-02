@@ -3,7 +3,8 @@
 import { useEffect, useState } from "react";
 import { Loader2, Trash2 } from "lucide-react";
 import { ScoreRing } from "@/components/analisis/ScoreRing";
-import { TextoConCambios } from "@/components/analisis/TextoConCambios";
+import { DocumentoTexto } from "@/components/analisis/DocumentoTexto";
+import { DocumentoCambios } from "@/components/analisis/DocumentoCambios";
 import { Disclaimer } from "@/components/app/Disclaimer";
 import { listarContratos, eliminarContrato, ApiError, type ContratoGuardado } from "@/lib/api";
 
@@ -37,7 +38,7 @@ export function BibliotecaView() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-10">
+    <div className="mx-auto max-w-5xl px-6 py-10">
       <p className="eyebrow mb-2.5">Biblioteca de precedentes</p>
       <h1 className="mb-2.5 font-serif text-[28px] font-medium">Contratos revisados</h1>
       <p className="mb-7 max-w-[60ch] text-[14.5px] text-ink-2">
@@ -100,12 +101,10 @@ export function BibliotecaView() {
               </div>
 
               {open && (
-                <div className="grid gap-6 border-t border-line p-[18px] md:grid-cols-2">
+                <div className="grid gap-6 border-t border-line p-[18px] lg:grid-cols-2">
                   <div>
                     <p className="mb-1.5 font-mono text-[10px] uppercase text-ink-3">Original</p>
-                    <div className="max-h-60 overflow-y-auto whitespace-pre-wrap font-serif text-[13px] leading-[1.6] text-ink-2">
-                      {c.texto_original}
-                    </div>
+                    <DocumentoTexto texto={c.texto_original} size="compact" />
                   </div>
                   <div>
                     <p
@@ -114,8 +113,9 @@ export function BibliotecaView() {
                     >
                       Con cambios aplicados
                     </p>
-                    <TextoConCambios
+                    <DocumentoCambios
                       original={c.texto_original}
+                      size="compact"
                       cambios={c.findings
                         .filter((f) => f.aplicada)
                         .map((f) => ({
@@ -124,7 +124,6 @@ export function BibliotecaView() {
                           nueva_redaccion: f.nueva_redaccion,
                           nivel_riesgo: f.nivel_riesgo,
                         }))}
-                      className="max-h-60 overflow-y-auto whitespace-pre-wrap font-serif text-[13px] leading-[1.6] text-ink-2"
                     />
                   </div>
                 </div>

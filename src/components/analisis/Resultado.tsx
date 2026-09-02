@@ -156,7 +156,7 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
         )
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         {/* Documento */}
         <div>
           <div className="mb-2 flex items-center justify-between">
@@ -196,7 +196,7 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
           <p className="mb-2.5 font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
             <AlertTriangle size={12} className="mr-1 inline" /> Puntos a revisar ({findings.length})
           </p>
-          <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto">
+          <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto lg:max-h-[68vh] lg:pr-1">
             {findings.map((f, i) => (
               <FindingCard
                 key={i}
@@ -237,8 +237,19 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
 
       {previewOpen && (
         <PreviewGuardar
-          segments={segments}
-          appliedMap={appliedMap}
+          original={contractText}
+          cambios={findings.flatMap((f, i) =>
+            appliedMap[i]
+              ? [
+                  {
+                    excerpt: f.excerpt,
+                    sugerencia: f.sugerencia ?? "",
+                    nueva_redaccion: f.nueva_redaccion,
+                    nivel_riesgo: f.nivel_riesgo,
+                  },
+                ]
+              : [],
+          )}
           appliedCount={appliedCount}
           total={findings.length}
           saving={saving}
