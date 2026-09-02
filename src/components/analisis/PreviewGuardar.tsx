@@ -10,6 +10,10 @@ interface Props {
   original: string;
   /** Hallazgos cuyo cambio se aplicó. */
   cambios: FindingLike[];
+  /** Nombre con el que se guardará el análisis. */
+  nombre: string;
+  onNombreChange: (v: string) => void;
+  placeholderNombre: string;
   appliedCount: number;
   total: number;
   saving: boolean;
@@ -26,6 +30,9 @@ interface Props {
 export function PreviewGuardar({
   original,
   cambios,
+  nombre,
+  onNombreChange,
+  placeholderNombre,
   appliedCount,
   total,
   saving,
@@ -75,6 +82,20 @@ export function PreviewGuardar({
         </div>
 
         <div className="overflow-y-auto px-5 py-4">
+          <label className="mb-4 block">
+            <span className="mb-1 block font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+              Nombre del análisis
+            </span>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => onNombreChange(e.target.value)}
+              placeholder={placeholderNombre}
+              disabled={saving}
+              className="w-full rounded-[2px] border border-line bg-paper-raised px-3 py-2 font-serif text-[14px] text-ink outline-none focus:border-ink disabled:opacity-60"
+            />
+          </label>
+
           <p className="mb-3 font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
             {appliedCount} de {total} cambios aplicados
           </p>

@@ -12,6 +12,7 @@
   "dependencies": {
     "@google/genai": "^2.20.0",
     "@supabase/supabase-js": "^2.112.0",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.38.0",
     "mammoth": "^1.12.2",
     "next": "15.5.25",

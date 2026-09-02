@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, Download } from "lucide-react";
 import { ScoreRing } from "@/components/analisis/ScoreRing";
 import { DocumentoTexto } from "@/components/analisis/DocumentoTexto";
 import { DocumentoCambios } from "@/components/analisis/DocumentoCambios";
 import { Disclaimer } from "@/components/app/Disclaimer";
+import { descargarContratoPdf } from "@/lib/contrato/pdf";
 import { listarContratos, eliminarContrato, ApiError, type ContratoGuardado } from "@/lib/api";
 
 export function BibliotecaView() {
@@ -14,6 +15,24 @@ export function BibliotecaView() {
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pdfBusy, setPdfBusy] = useState("");
+
+  async function bajarPdf(c: ContratoGuardado, tipo: "original" | "cambios") {
+    setPdfBusy(c.id + tipo);
+    setError("");
+    try {
+      await descargarContratoPdf({
+        nombre: c.nombre_archivo || "Contrato",
+        titulo: tipo === "original" ? "Original" : "Con cambios aplicados",
+        texto: tipo === "original" ? c.texto_original : c.texto_editado || c.texto_original,
+        variante: tipo === "original" ? "original" : "con-cambios",
+      });
+    } catch {
+      setError("No se pudo generar el PDF.");
+    } finally {
+      setPdfBusy("");
+    }
+  }
 
   useEffect(() => {
     listarContratos()
@@ -101,7 +120,29 @@ export function BibliotecaView() {
               </div>
 
               {open && (
-                <div className="grid gap-6 border-t border-line p-[18px] lg:grid-cols-2">
+                <div className="border-t border-line p-[18px]">
+                  <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="mr-1 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+                      Descargar PDF
+                    </span>
+                    {(["original", "cambios"] as const).map((tipo) => (
+                      <button
+                        key={tipo}
+                        onClick={() => bajarPdf(c, tipo)}
+                        disabled={pdfBusy === c.id + tipo}
+                        className="flex items-center gap-1.5 rounded-[2px] border border-line px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-ink-2 transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
+                      >
+                        {pdfBusy === c.id + tipo ? (
+                          <Loader2 size={12} className="animate-spin" />
+                        ) : (
+                          <Download size={12} />
+                        )}
+                        {tipo === "original" ? "Original" : "Con cambios"}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid gap-6 lg:grid-cols-2">
                   <div>
                     <p className="mb-1.5 font-mono text-[10px] uppercase text-ink-3">Original</p>
                     <DocumentoTexto texto={c.texto_original} size="compact" />
@@ -125,6 +166,7 @@ export function BibliotecaView() {
                           nivel_riesgo: f.nivel_riesgo,
                         }))}
                     />
+                  </div>
                   </div>
                 </div>
               )}

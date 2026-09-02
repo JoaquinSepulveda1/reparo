@@ -33,7 +33,10 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [page, setPage] = useState(0);
+  const [nombre, setNombre] = useState(fileName);
   const router = useRouter();
+
+  const nombreFinal = nombre.trim() || fileName || "Contrato pegado";
 
   const markRefs = useRef<Record<number, HTMLElement | null>>({});
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -93,7 +96,7 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
     setSaveError("");
     try {
       await guardarContrato({
-        nombre_archivo: fileName || "Contrato pegado",
+        nombre_archivo: nombreFinal,
         texto_original: contractText,
         texto_editado: editedText,
         score_general: resultado.score_general,
@@ -238,6 +241,9 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
       {previewOpen && (
         <PreviewGuardar
           original={contractText}
+          nombre={nombre}
+          onNombreChange={setNombre}
+          placeholderNombre={fileName || "Contrato pegado"}
           cambios={findings.flatMap((f, i) =>
             appliedMap[i]
               ? [

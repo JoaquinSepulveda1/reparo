@@ -16,6 +16,7 @@ Revisión de contratos legales con IA — foco Chile. Next.js 15 (App Router) + 
 | Pantalla principal: subir/pegar, resultado con highlights, aplicar sugerencias | ✅ |
 | `POST /api/contratos` (guardar) + `GET` + vista Biblioteca | ✅ |
 | Trocear contratos largos (chunking) + vista del documento paginada | ✅ |
+| Nombrar el análisis al guardar · descargar Original / Con cambios en PDF (biblioteca) | ✅ |
 | Playbook configurable (criterio de riesgo hoy hardcodeado en `prompt.ts`) | ⏳ futuro |
 
 ## Setup
@@ -88,6 +89,7 @@ src/
       paginacion.ts          paginar() / segmentosPorPagina() / paginaPorFinding() — vista paginada
       matching.ts            normalizeChars / findExcerptRange / buildSegments / buildEditedText
       extraer.ts             Extracción de texto en el cliente (.txt / .docx mammoth / .pdf pdfjs)
+      pdf.ts                 descargarContratoPdf() — exporta un contrato a PDF (jspdf, dynamic import)
     design/tokens.ts         Paleta + riskStyle + scoreColor (fuente única; la importa tailwind.config)
   components/
     brand/Logo.tsx           SVG documento + lupa
