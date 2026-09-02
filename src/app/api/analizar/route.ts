@@ -7,7 +7,7 @@ import {
   AnalisisParseError,
   AnalisisModeloError,
 } from "@/lib/analisis/analizar";
-import { MAX_CHARS } from "@/lib/contrato/constantes";
+import { MAX_CHARS_TOTAL } from "@/lib/contrato/constantes";
 
 // La llamada a Gemini puede tardar: forzamos runtime Node y sin cache.
 export const runtime = "nodejs";
@@ -53,8 +53,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ...resultado,
       meta: {
-        truncado: parsed.data.texto.length > MAX_CHARS,
-        chars_analizados: Math.min(parsed.data.texto.length, MAX_CHARS),
+        truncado: parsed.data.texto.length > MAX_CHARS_TOTAL,
+        chars_analizados: Math.min(parsed.data.texto.length, MAX_CHARS_TOTAL),
+        chunks: resultado.chunks,
         nombre_archivo: parsed.data.nombreArchivo ?? null,
       },
     });

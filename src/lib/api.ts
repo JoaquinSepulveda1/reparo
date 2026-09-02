@@ -23,7 +23,12 @@ export interface AnalizarResponse {
   resumen: string;
   findings: Finding[];
   uso_precedentes: boolean;
-  meta: { truncado: boolean; chars_analizados: number; nombre_archivo: string | null };
+  meta: {
+    truncado: boolean;
+    chars_analizados: number;
+    chunks: number;
+    nombre_archivo: string | null;
+  };
 }
 
 export interface FindingGuardado extends Finding {

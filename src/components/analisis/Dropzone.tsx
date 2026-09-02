@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Upload, Loader2, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { MAX_CHARS } from "@/lib/contrato/constantes";
+import { CHUNK_CHARS, MAX_CHARS_TOTAL, MAX_CHUNKS } from "@/lib/contrato/constantes";
 import { extraerTexto, ExtraccionError } from "@/lib/contrato/extraer";
 
 interface Props {
@@ -32,7 +32,7 @@ export function Dropzone({ texto, fileName, onChange, onAnalizar, analizando, er
         );
         return;
       }
-      onChange(raw.slice(0, MAX_CHARS), file.name);
+      onChange(raw.slice(0, MAX_CHARS_TOTAL), file.name);
     } catch (e) {
       setErrorLocal(
         e instanceof ExtraccionError
@@ -84,14 +84,22 @@ export function Dropzone({ texto, fileName, onChange, onAnalizar, analizando, er
       </p>
       <textarea
         value={texto}
-        onChange={(e) => onChange(e.target.value.slice(0, MAX_CHARS), "")}
+        onChange={(e) => onChange(e.target.value.slice(0, MAX_CHARS_TOTAL), "")}
         placeholder="Pegá aquí el texto del contrato..."
         rows={10}
         className="w-full resize-y rounded-[2px] border border-line bg-paper-raised p-4 font-serif text-[14.5px] text-ink outline-none focus:border-ink"
       />
       <div className="mb-6 mt-2 flex items-center justify-between">
         <span className="font-mono text-[11px] text-ink-3">
-          {texto.length}/{MAX_CHARS} caracteres
+          {texto.length.toLocaleString("es-CL")}/{MAX_CHARS_TOTAL.toLocaleString("es-CL")} caracteres
+          {texto.length > CHUNK_CHARS && (
+            <span className="ml-2 text-ink-3">
+              · se analizará en {Math.min(MAX_CHUNKS, Math.ceil(texto.length / CHUNK_CHARS))} partes
+            </span>
+          )}
+          {texto.length >= MAX_CHARS_TOTAL && (
+            <span className="ml-2 text-redline">· alcanzaste el máximo; el resto se recorta</span>
+          )}
         </span>
         {leyendo && (
           <span className="flex items-center gap-1 font-mono text-[11px] text-ink-3">

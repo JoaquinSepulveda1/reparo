@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, FileText, AlertTriangle, Sparkles } from "lucide-react";
 import { ScoreRing } from "./ScoreRing";
@@ -10,6 +10,8 @@ import { PreviewGuardar } from "./PreviewGuardar";
 import { Disclaimer } from "@/components/app/Disclaimer";
 import { colors } from "@/lib/design/tokens";
 import { buildSegments, buildEditedText, matchedIndices } from "@/lib/contrato/matching";
+import { paginar, segmentosPorPagina, paginaPorFinding } from "@/lib/contrato/paginacion";
+import { MAX_CHARS_TOTAL } from "@/lib/contrato/constantes";
 import { guardarContrato, ApiError, type AnalizarResponse } from "@/lib/api";
 
 interface Props {
@@ -30,10 +32,13 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
   const [previewOpen, setPreviewOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [page, setPage] = useState(0);
   const router = useRouter();
 
   const markRefs = useRef<Record<number, HTMLElement | null>>({});
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // Finding a cuyo highlight hay que hacer scroll una vez que cambió la página.
+  const pendingMark = useRef<number | null>(null);
 
   const segments = useMemo(
     () => buildSegments(contractText, findings.map((f) => ({ ...f }))),
@@ -46,13 +51,38 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
   );
   const appliedCount = Object.values(appliedMap).filter(Boolean).length;
 
+  const paginas = useMemo(() => paginar(contractText), [contractText]);
+  const segsPagina = useMemo(
+    () => segmentosPorPagina(segments, paginas),
+    [segments, paginas],
+  );
+  const findingPage = useMemo(() => paginaPorFinding(segsPagina), [segsPagina]);
+
+  // Después de saltar de página, hacemos scroll al highlight que quedó pendiente.
+  useEffect(() => {
+    const idx = pendingMark.current;
+    if (idx == null) return;
+    pendingMark.current = null;
+    const id = requestAnimationFrame(() => {
+      markRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [page]);
+
   function focusMark(idx: number) {
     setActiveIndex(idx);
     cardRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   function focusCard(idx: number, hasMatch: boolean) {
     setActiveIndex(idx);
-    if (hasMatch) markRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (!hasMatch) return;
+    const destino = findingPage[idx] ?? 0;
+    if (destino !== page) {
+      pendingMark.current = idx;
+      setPage(destino);
+    } else {
+      markRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   }
   function toggleApplied(idx: number) {
     setAppliedMap((p) => ({ ...p, [idx]: !p[idx] }));
@@ -103,6 +133,29 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
         </div>
       </div>
 
+      {resultado.meta.truncado ? (
+        <div
+          className="mb-6 rounded-[2px] border border-line px-4 py-3 text-[12.5px] text-ink-2"
+          style={{ background: colors.redline.soft }}
+        >
+          <AlertTriangle
+            size={13}
+            className="mr-1.5 inline align-[-2px]"
+            style={{ color: colors.redline.DEFAULT }}
+          />
+          El contrato supera el máximo analizable ({MAX_CHARS_TOTAL.toLocaleString("es-CL")}{" "}
+          caracteres). Se revisaron los primeros{" "}
+          {resultado.meta.chars_analizados.toLocaleString("es-CL")} en{" "}
+          {resultado.meta.chunks} partes; el resto quedó fuera.
+        </div>
+      ) : (
+        resultado.meta.chunks > 1 && (
+          <p className="mb-6 font-mono text-[10.5px] text-ink-3">
+            documento largo — analizado en {resultado.meta.chunks} partes
+          </p>
+        )
+      )}
+
       <div className="grid gap-8 lg:grid-cols-[1.3fr_1fr]">
         {/* Documento */}
         <div>
@@ -127,11 +180,12 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
             </div>
           </div>
           <DocumentoConHighlights
-            texto={contractText}
-            findings={findings}
+            segmentosPagina={segsPagina}
             activeIndex={activeIndex}
             appliedMap={appliedMap}
             docMode={docMode}
+            page={page}
+            onPageChange={setPage}
             onMarkClick={focusMark}
             markRefs={markRefs}
           />

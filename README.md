@@ -15,7 +15,7 @@ Revisión de contratos legales con IA — foco Chile. Next.js 15 (App Router) + 
 | `POST /api/analizar` (Gemini server-side + precedentes) | ✅ |
 | Pantalla principal: subir/pegar, resultado con highlights, aplicar sugerencias | ✅ |
 | `POST /api/contratos` (guardar) + `GET` + vista Biblioteca | ✅ |
-| Trocear contratos largos (chunking) | ⏳ mejora futura |
+| Trocear contratos largos (chunking) + vista del documento paginada | ✅ |
 | Playbook configurable (criterio de riesgo hoy hardcodeado en `prompt.ts`) | ⏳ futuro |
 
 ## Setup
@@ -81,9 +81,11 @@ src/
       prompt.ts              System prompt — replicado del prototipo
       precedentes.ts         getPrecedentsDigest() vía Postgres
       schema.ts              Zod + parseAnalisis() + AnalisisParseError / AnalisisModeloError
-      analizar.ts            Pipeline: precedentes → Gemini (structured output) → parse
+      analizar.ts            Pipeline: split en chunks → precedentes → Gemini x chunk en paralelo → fusión
     contrato/
-      constantes.ts          MAX_CHARS = 6000, DISCLAIMER
+      constantes.ts          CHUNK_CHARS / MAX_CHUNKS / MAX_CHARS_TOTAL / PAGE_CHARS, DISCLAIMER
+      chunking.ts            puntosDeCorte() + dividirEnChunks() — corte por límites naturales
+      paginacion.ts          paginar() / segmentosPorPagina() / paginaPorFinding() — vista paginada
       matching.ts            normalizeChars / findExcerptRange / buildSegments / buildEditedText
       extraer.ts             Extracción de texto en el cliente (.txt / .docx mammoth / .pdf pdfjs)
     design/tokens.ts         Paleta + riskStyle + scoreColor (fuente única; la importa tailwind.config)
@@ -142,6 +144,11 @@ Errores:
 - Sin multi-tenancy ni concepto de "empresa": una sola biblioteca compartida.
 - Sin login por usuario: una contraseña compartida para toda la app.
 - Sin playbook configurable: el criterio de riesgo va hardcodeado en `prompt.ts`.
-- Contratos truncados a `MAX_CHARS` (6000). Chunking = mejora futura.
+- Contratos de hasta `MAX_CHARS_TOTAL` (`CHUNK_CHARS` × `MAX_CHUNKS` = 9000 × 4 = 36 000).
+  Se analizan en trozos, una llamada a Gemini por trozo **en paralelo** (1 reintento por
+  trozo; si uno falla se corta todo), y después se fusionan: findings dedupe + orden por
+  riesgo + tope 10; `score_general` = `max·0.7 + promedio·0.3`; `resumen` del trozo peor.
+  Lo que exceda 36 000 se trunca y la UI lo avisa. La vista del documento va **paginada**
+  (`PAGE_CHARS`), navegable, y al clickear un finding salta a su página.
 - Parseo de archivos (`.docx` con `mammoth`, `.pdf` con `pdfjs-dist`, `.txt`) se hace
   en el cliente y se manda `texto` ya extraído a `/api/analizar` — igual que el prototipo.
