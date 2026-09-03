@@ -1,39 +1,71 @@
 /**
  * Fuente única de verdad del sistema de diseño "Reparo".
- * Extraído del prototipo (ContratoReview.jsx) y de la landing (reparo-chile.html).
  *
- * `tailwind.config.ts` importa `colors` de aquí, así que no se duplican los hex.
- * Para SVGs inline (el logo) o estilos que no pasan por Tailwind, importar desde
- * este archivo en vez de escribir el color a mano.
+ * El color vive en variables CSS (ver `src/app/globals.css`): `:root` define el
+ * tema claro y `:root[data-theme="dark"]` el oscuro. Acá solo se referencian esas
+ * variables, así que cualquier `style={{ color: colors.ink.DEFAULT }}` o clase de
+ * Tailwind queda tematizada automáticamente.
+ *
+ * `tailwind.config.ts` importa `colors` de aquí. Para SVGs que necesiten un color
+ * concreto (no `currentColor`), importar `INK_HEX` / `REDLINE_HEX`.
  */
+
+const v = (name: string) => `var(--${name})`;
 
 export const colors = {
   paper: {
-    DEFAULT: "#F1EEE4", // fondo base
-    2: "#E9E4D6", // fondo alterno (bandas)
-    raised: "#FBFAF6", // tarjetas / documento sobre el fondo
+    DEFAULT: v("paper"), // fondo base de la página
+    2: v("paper-2"), // fondo alterno (bandas)
+    raised: v("paper-raised"), // tarjetas / hoja del documento
   },
   ink: {
-    DEFAULT: "#1B2A4A", // texto principal / botones
-    2: "#3D4A66", // texto secundario
-    3: "#6B7280", // texto terciario / labels apagados
+    DEFAULT: v("ink"), // texto principal / botones
+    2: v("ink-2"), // texto secundario
+    3: v("ink-3"), // texto terciario / labels apagados
   },
   redline: {
-    DEFAULT: "#B23A2E", // acento primario, riesgo alto
-    soft: "rgba(178,58,46,0.14)", // fondo highlight riesgo alto
+    DEFAULT: v("redline"), // riesgo alto
+    soft: v("redline-soft"), // fondo highlight riesgo alto
+    glow: v("redline-glow"), // aura / sombra riesgo alto
   },
   brass: {
-    DEFAULT: "#8C6B2F", // riesgo medio / sugerencias aplicadas
-    soft: "rgba(140,107,47,0.16)", // fondo highlight riesgo medio
+    DEFAULT: v("brass"), // riesgo medio / sugerencias aplicadas
+    soft: v("brass-soft"),
+    glow: v("brass-glow"),
   },
-  line: "rgba(27,42,74,0.15)", // bordes / reglas
+  /** Acento de "inteligencia / IA". Independiente de la escala de riesgo. */
+  accent: {
+    DEFAULT: v("accent"),
+    soft: v("accent-soft"),
+    glow: v("accent-glow"),
+  },
+  line: v("line"), // hairlines / bordes
 } as const;
+
+/** Hex crudos para SVG que no puede usar `currentColor`. */
+export const INK_HEX = "#1B2A4A";
+export const REDLINE_HEX = "#B23A2E";
 
 /** Estilo por nivel de riesgo — replica RISK_STYLE del prototipo. */
 export const riskStyle = {
-  alto: { color: colors.redline.DEFAULT, bg: colors.redline.soft, label: "Riesgo alto" },
-  medio: { color: colors.brass.DEFAULT, bg: colors.brass.soft, label: "Riesgo medio" },
-  bajo: { color: colors.ink[2], bg: "rgba(61,74,102,0.10)", label: "Riesgo bajo" },
+  alto: {
+    color: colors.redline.DEFAULT,
+    bg: colors.redline.soft,
+    glow: colors.redline.glow,
+    label: "Riesgo alto",
+  },
+  medio: {
+    color: colors.brass.DEFAULT,
+    bg: colors.brass.soft,
+    glow: colors.brass.glow,
+    label: "Riesgo medio",
+  },
+  bajo: {
+    color: colors.ink[2],
+    bg: v("ink2-soft"),
+    glow: v("ink2-soft"),
+    label: "Riesgo bajo",
+  },
 } as const;
 
 export type NivelRiesgo = keyof typeof riskStyle;
@@ -45,4 +77,25 @@ export function scoreColor(score: number): string {
   return colors.ink[2];
 }
 
-export const radius = "2px";
+/** Aura del score ring, a juego con scoreColor(). */
+export function scoreGlow(score: number): string {
+  if (score >= 66) return colors.redline.glow;
+  if (score >= 33) return colors.brass.glow;
+  return v("ink2-soft");
+}
+
+/** Curvas y tiempos de animación. Usar con framer-motion o transiciones CSS. */
+export const motion = {
+  easeOut: [0.16, 1, 0.3, 1] as [number, number, number, number],
+  spring: { type: "spring", stiffness: 420, damping: 34, mass: 0.9 } as const,
+  springSoft: { type: "spring", stiffness: 260, damping: 30 } as const,
+  dur: { fast: 0.15, base: 0.22, slow: 0.4 },
+} as const;
+
+/** Radios. `sharp` es para la hoja del documento y los highlights (papel). */
+export const radius = {
+  sharp: "2px",
+  base: "8px",
+  lg: "14px",
+  full: "9999px",
+} as const;

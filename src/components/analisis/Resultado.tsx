@@ -2,16 +2,22 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, FileText, AlertTriangle, Sparkles } from "lucide-react";
 import { ScoreRing } from "./ScoreRing";
 import { DocumentoConHighlights } from "./DocumentoConHighlights";
 import { FindingCard } from "./FindingCard";
 import { PreviewGuardar } from "./PreviewGuardar";
 import { Disclaimer } from "@/components/app/Disclaimer";
-import { colors } from "@/lib/design/tokens";
+import { Badge } from "@/components/ui/Badge";
+import { Button } from "@/components/ui/Button";
+import { Kbd } from "@/components/ui/Kbd";
+import { cn } from "@/components/ui/cn";
 import { buildSegments, buildEditedText, matchedIndices } from "@/lib/contrato/matching";
 import { paginar, segmentosPorPagina, paginaPorFinding } from "@/lib/contrato/paginacion";
 import { MAX_CHARS_TOTAL } from "@/lib/contrato/constantes";
+import { scoreColor } from "@/lib/design/tokens";
+import { useFindingKeyboardNav } from "@/lib/hooks/useFindingKeyboardNav";
 import { guardarContrato, ApiError, type AnalizarResponse } from "@/lib/api";
 
 interface Props {
@@ -24,9 +30,7 @@ interface Props {
 export function Resultado({ resultado, contractText, fileName, onReset }: Props) {
   const { findings } = resultado;
 
-  const [activeIndex, setActiveIndex] = useState<number | null>(
-    findings.length ? 0 : null,
-  );
+  const [activeIndex, setActiveIndex] = useState<number | null>(findings.length ? 0 : null);
   const [appliedMap, setAppliedMap] = useState<Record<number, boolean>>({});
   const [docMode, setDocMode] = useState<"original" | "edited">("original");
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -40,7 +44,6 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
 
   const markRefs = useRef<Record<number, HTMLElement | null>>({});
   const cardRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  // Finding a cuyo highlight hay que hacer scroll una vez que cambió la página.
   const pendingMark = useRef<number | null>(null);
 
   const segments = useMemo(
@@ -48,20 +51,13 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
     [contractText, findings],
   );
   const matched = useMemo(() => matchedIndices(segments), [segments]);
-  const editedText = useMemo(
-    () => buildEditedText(segments, appliedMap),
-    [segments, appliedMap],
-  );
+  const editedText = useMemo(() => buildEditedText(segments, appliedMap), [segments, appliedMap]);
   const appliedCount = Object.values(appliedMap).filter(Boolean).length;
 
   const paginas = useMemo(() => paginar(contractText), [contractText]);
-  const segsPagina = useMemo(
-    () => segmentosPorPagina(segments, paginas),
-    [segments, paginas],
-  );
+  const segsPagina = useMemo(() => segmentosPorPagina(segments, paginas), [segments, paginas]);
   const findingPage = useMemo(() => paginaPorFinding(segsPagina), [segsPagina]);
 
-  // Después de saltar de página, hacemos scroll al highlight que quedó pendiente.
   useEffect(() => {
     const idx = pendingMark.current;
     if (idx == null) return;
@@ -91,6 +87,15 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
     setAppliedMap((p) => ({ ...p, [idx]: !p[idx] }));
   }
 
+  useFindingKeyboardNav({
+    count: findings.length,
+    activeIndex,
+    setActiveIndex: focusMark,
+    onJump: (i) => focusCard(i, matched.has(i)),
+    onToggleApply: toggleApplied,
+    enabled: !previewOpen,
+  });
+
   async function confirmarGuardar() {
     setSaving(true);
     setSaveError("");
@@ -103,7 +108,6 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
         resumen: resultado.resumen,
         findings: findings.map((f, i) => ({ ...f, aplicada: !!appliedMap[i] })),
       });
-      // No volver a la misma pantalla: se va a la biblioteca.
       router.push("/biblioteca");
     } catch (e) {
       setSaveError(e instanceof ApiError ? e.message : "No pude guardar. Intentá de nuevo.");
@@ -111,73 +115,108 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
     }
   }
 
+  const scoreCol = scoreColor(resultado.score_general);
+
   return (
     <div>
-      <button
-        onClick={onReset}
-        className="mb-6 flex items-center gap-1 font-mono text-[12px] text-ink-3 hover:text-ink"
-      >
-        <ArrowLeft size={13} /> Analizar otro contrato
-      </button>
-
-      {/* Score */}
-      <div className="mb-8 flex items-center gap-6 rounded-[2px] border border-line bg-paper-raised px-6 py-5">
-        <ScoreRing score={resultado.score_general} />
-        <div>
-          <p className="mb-1 font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
-            Puntaje de riesgo general
-          </p>
-          <p className="text-[14.5px] text-ink-2">{resultado.resumen}</p>
-          {resultado.uso_precedentes && (
-            <p className="mt-1.5 font-mono text-[10.5px] text-ink-3">
-              informado con precedentes de análisis anteriores
-            </p>
+      {/* Sub-barra sticky de acción */}
+      <div className="glass sticky top-14 z-30 -mx-4 mb-6 flex items-center gap-3 border-b px-4 py-2.5 sm:-mx-6 sm:px-6">
+        <button
+          onClick={onReset}
+          className="flex items-center gap-1 font-mono text-[11px] uppercase tracking-[0.04em] text-ink-3 transition-colors hover:text-ink"
+        >
+          <ArrowLeft size={13} /> <span className="hidden sm:inline">Analizar otro</span>
+        </button>
+        <span className="h-4 w-px bg-line" />
+        <span className="tabnums flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.04em] text-ink-2">
+          <span
+            className="grid h-6 min-w-6 place-items-center rounded-full px-1.5 text-[11px] font-semibold"
+            style={{ color: scoreCol, boxShadow: `inset 0 0 0 1.5px ${scoreCol}` }}
+          >
+            {resultado.score_general}
+          </span>
+          {findings.length} {findings.length === 1 ? "punto" : "puntos"}
+          {appliedCount > 0 && (
+            <span className="hidden text-ink-3 sm:inline">· {appliedCount} aplicados</span>
           )}
+        </span>
+        <div className="ml-auto">
+          <Button
+            size="sm"
+            onClick={() => {
+              setSaveError("");
+              setPreviewOpen(true);
+            }}
+          >
+            Revisar y guardar
+          </Button>
         </div>
       </div>
 
+      {/* Panel de score */}
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+        className="mb-6 flex items-center gap-5 rounded-lg border border-line bg-paper-raised px-5 py-5 shadow-md sm:gap-6 sm:px-6"
+      >
+        <ScoreRing score={resultado.score_general} />
+        <div className="min-w-0">
+          <p className="eyebrow mb-1">Puntaje de riesgo general</p>
+          <p className="text-[14.5px] leading-snug text-ink-2">{resultado.resumen}</p>
+          {resultado.uso_precedentes && (
+            <span className="mt-2 inline-flex items-center gap-1.5">
+              <Badge tone="accent" variant="soft">
+                <Sparkles size={10} /> Informado con precedentes
+              </Badge>
+            </span>
+          )}
+        </div>
+      </motion.div>
+
       {resultado.meta.truncado ? (
-        <div
-          className="mb-6 rounded-[2px] border border-line px-4 py-3 text-[12.5px] text-ink-2"
-          style={{ background: colors.redline.soft }}
-        >
-          <AlertTriangle
-            size={13}
-            className="mr-1.5 inline align-[-2px]"
-            style={{ color: colors.redline.DEFAULT }}
-          />
-          El contrato supera el máximo analizable ({MAX_CHARS_TOTAL.toLocaleString("es-CL")}{" "}
-          caracteres). Se revisaron los primeros{" "}
-          {resultado.meta.chars_analizados.toLocaleString("es-CL")} en{" "}
-          {resultado.meta.chunks} partes; el resto quedó fuera.
+        <div className="mb-6 flex items-start gap-2 rounded border border-line bg-redline-soft px-4 py-3 text-[12.5px] leading-snug text-ink-2">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-redline" />
+          <span>
+            El contrato supera el máximo analizable ({MAX_CHARS_TOTAL.toLocaleString("es-CL")}{" "}
+            caracteres). Se revisaron los primeros{" "}
+            {resultado.meta.chars_analizados.toLocaleString("es-CL")} en {resultado.meta.chunks}{" "}
+            partes; el resto quedó fuera.
+          </span>
         </div>
       ) : (
         resultado.meta.chunks > 1 && (
-          <p className="mb-6 font-mono text-[10.5px] text-ink-3">
-            documento largo — analizado en {resultado.meta.chunks} partes
+          <p className="mb-6">
+            <Badge variant="soft">Documento largo · analizado en {resultado.meta.chunks} partes</Badge>
           </p>
         )
       )}
 
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-8">
         {/* Documento */}
         <div>
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
-              <FileText size={12} className="mr-1 inline" /> Documento
+            <span className="eyebrow flex items-center gap-1.5 text-ink-3">
+              <FileText size={12} /> Documento
             </span>
-            <div className="flex overflow-hidden rounded-[2px] border border-line">
+            <div className="relative flex rounded border border-line p-0.5">
               {(["original", "edited"] as const).map((m) => (
                 <button
                   key={m}
                   onClick={() => setDocMode(m)}
-                  className="px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.04em] transition-colors"
-                  style={{
-                    background: docMode === m ? colors.ink.DEFAULT : colors.paper.raised,
-                    color: docMode === m ? colors.paper.DEFAULT : colors.ink[3],
-                  }}
+                  className={cn(
+                    "relative z-10 rounded-sm px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.04em] transition-colors",
+                    docMode === m ? "text-paper" : "text-ink-3 hover:text-ink",
+                  )}
                 >
-                  {m === "original" ? "Original" : "Con cambios"}
+                  {docMode === m && (
+                    <motion.span
+                      layoutId="resultado-docmode"
+                      className="absolute inset-0 -z-0 rounded-sm bg-ink"
+                      transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                    />
+                  )}
+                  <span className="relative">{m === "original" ? "Original" : "Con cambios"}</span>
                 </button>
               ))}
             </div>
@@ -190,19 +229,29 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
             page={page}
             onPageChange={setPage}
             onMarkClick={focusMark}
+            onToggleApplied={toggleApplied}
             markRefs={markRefs}
           />
         </div>
 
         {/* Findings */}
         <div>
-          <p className="mb-2.5 font-mono text-[11px] uppercase tracking-eyebrow text-ink-3">
-            <AlertTriangle size={12} className="mr-1 inline" /> Puntos a revisar ({findings.length})
-          </p>
-          <div className="flex max-h-[560px] flex-col gap-3 overflow-y-auto lg:max-h-[68vh] lg:pr-1">
+          <div className="mb-2.5 flex items-center justify-between">
+            <span className="eyebrow flex items-center gap-1.5 text-ink-3">
+              <AlertTriangle size={12} /> Puntos a revisar ({findings.length})
+            </span>
+            {findings.length > 1 && (
+              <span className="hidden items-center gap-1 font-mono text-[9.5px] uppercase tracking-[0.04em] text-ink-3 lg:flex">
+                <Kbd>J</Kbd>
+                <Kbd>K</Kbd> mover · <Kbd>A</Kbd> aplicar
+              </span>
+            )}
+          </div>
+          <div className="scroll-fade thin-scroll flex max-h-[560px] flex-col gap-3 overflow-y-auto pr-1 lg:max-h-[calc(100vh-9rem)]">
             {findings.map((f, i) => (
               <FindingCard
                 key={i}
+                index={i}
                 ref={(el) => {
                   cardRefs.current[i] = el;
                 }}
@@ -219,26 +268,28 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
       </div>
 
       {/* Guardar */}
-      <div className="mt-8 flex items-center justify-between border-t border-line pt-5">
-        <p className="max-w-[50ch] text-[12.5px] text-ink-3">
+      <div className="mt-8 flex flex-col items-start gap-3 border-t border-line pt-5 sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-[52ch] text-[12.5px] leading-snug text-ink-3">
           <Sparkles size={12} className="mr-1 inline align-[-1px]" />
           Guardar este análisis lo agrega a la biblioteca de precedentes: la próxima revisión va a
           considerar qué sugerencias aceptaste acá.
         </p>
-        <button
+        <Button
+          size="sm"
+          className="shrink-0"
           onClick={() => {
             setSaveError("");
             setPreviewOpen(true);
           }}
-          className="ml-5 shrink-0 rounded-[2px] bg-ink px-5 py-3 font-mono text-[12px] uppercase tracking-[0.05em] text-paper transition-colors hover:bg-redline"
         >
           Revisar y guardar
-        </button>
+        </Button>
       </div>
 
       <Disclaimer className="mt-10" />
 
-      {previewOpen && (
+      <AnimatePresence>
+        {previewOpen && (
         <PreviewGuardar
           original={contractText}
           nombre={nombre}
@@ -268,7 +319,8 @@ export function Resultado({ resultado, contractText, fileName, onReset }: Props)
             }
           }}
         />
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }

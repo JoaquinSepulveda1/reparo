@@ -43,7 +43,7 @@ export function HoverTipText({
       </span>
       {pos && (
         <span
-          className="pointer-events-none fixed z-[60] block border border-line bg-ink px-3 py-2 text-paper shadow-doc"
+          className="pointer-events-none fixed z-[60] block border border-line bg-ink px-3 py-2 text-paper shadow-lg"
           style={{ left: pos.x, top: pos.y, width: TIP_WIDTH }}
         >
           <span

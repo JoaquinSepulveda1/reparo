@@ -2,17 +2,102 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   Tokens de color — tema claro (default) y oscuro (`[data-theme="dark"]`).
+   El documento sigue en "papel": cálido, serif. La interfaz alrededor es el
+   instrumento: hairlines, vidrio, glow de acento.
+   ========================================================================== */
+:root {
+  color-scheme: light;
+
+  --paper: #f1eee4;
+  --paper-2: #e9e4d6;
+  --paper-raised: #fbfaf6;
+
+  --ink: #1b2a4a;
+  --ink-2: #3d4a66;
+  --ink-3: #6b7280;
+
+  --line: rgba(27, 42, 74, 0.14);
+  --line-strong: rgba(27, 42, 74, 0.28);
+
+  --accent: #3a4bb5;
+  --accent-soft: rgba(58, 75, 181, 0.12);
+  --accent-glow: rgba(58, 75, 181, 0.34);
+  --accent-ring: rgba(58, 75, 181, 0.42);
+
+  --redline: #b23a2e;
+  --redline-soft: rgba(178, 58, 46, 0.13);
+  --redline-glow: rgba(178, 58, 46, 0.34);
+
+  --brass: #8c6b2f;
+  --brass-soft: rgba(140, 107, 47, 0.15);
+  --brass-glow: rgba(140, 107, 47, 0.3);
+
+  --ink2-soft: rgba(61, 74, 102, 0.1);
+
+  --shadow-sm: 0 1px 2px rgba(27, 42, 74, 0.06), 0 1px 3px rgba(27, 42, 74, 0.05);
+  --shadow-md: 0 4px 14px -2px rgba(27, 42, 74, 0.1), 0 2px 6px -2px rgba(27, 42, 74, 0.08);
+  --shadow-lg: 0 18px 44px -10px rgba(27, 42, 74, 0.2), 0 6px 16px -6px rgba(27, 42, 74, 0.12);
+  --shadow-paper: 6px 6px 0 rgba(27, 42, 74, 0.06);
+
+  --glass-bg: rgba(251, 250, 246, 0.72);
+  --glass-border: rgba(27, 42, 74, 0.1);
+
+  --selection-bg: var(--redline-soft);
+  --selection-fg: var(--redline);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --paper: #0e1420;
+  --paper-2: #121a2b;
+  --paper-raised: #1b2434;
+
+  --ink: #eef1f6;
+  --ink-2: #c7cedb;
+  --ink-3: #8a93a6;
+
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.22);
+
+  --accent: #838fff;
+  --accent-soft: rgba(131, 143, 255, 0.16);
+  --accent-glow: rgba(131, 143, 255, 0.4);
+  --accent-ring: rgba(131, 143, 255, 0.5);
+
+  --redline: #e58072;
+  --redline-soft: rgba(229, 128, 114, 0.17);
+  --redline-glow: rgba(229, 128, 114, 0.4);
+
+  --brass: #d7ac5c;
+  --brass-soft: rgba(215, 172, 92, 0.16);
+  --brass-glow: rgba(215, 172, 92, 0.36);
+
+  --ink2-soft: rgba(199, 206, 219, 0.12);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 6px 18px -4px rgba(0, 0, 0, 0.5), 0 2px 8px -2px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 24px 50px -12px rgba(0, 0, 0, 0.6), 0 8px 20px -6px rgba(0, 0, 0, 0.45);
+  --shadow-paper: 6px 6px 0 rgba(0, 0, 0, 0.28);
+
+  --glass-bg: rgba(18, 26, 43, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.1);
+}
+
 @layer base {
-  :root {
-    color-scheme: light;
+  * {
+    border-color: var(--line);
   }
 
   body {
-    background-color: theme("colors.paper.DEFAULT");
-    color: theme("colors.ink.DEFAULT");
+    background-color: var(--paper);
+    color: var(--ink);
     font-family: theme("fontFamily.sans");
     line-height: 1.55;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   h1,
@@ -24,14 +109,121 @@
   }
 
   ::selection {
-    background: theme("colors.redline.soft");
-    color: theme("colors.redline.DEFAULT");
+    background: var(--selection-bg);
+    color: var(--selection-fg);
+  }
+
+  /* Focus visible coherente en toda la app. */
+  :focus-visible {
+    outline: 2px solid var(--accent-ring);
+    outline-offset: 2px;
   }
 }
 
 @layer components {
-  /* Eyebrow / label en mono mayúscula, reutilizado en toda la app. */
+  /* Eyebrow / label en mono mayúscula — ADN de la marca. */
   .eyebrow {
-    @apply font-mono text-[11.5px] uppercase tracking-eyebrow text-redline;
+    @apply font-mono text-[11px] uppercase tracking-eyebrow text-accent;
+  }
+
+  /* Panel de vidrio: barra superior, paleta de comandos, tarjeta de login. */
+  .glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-color: var(--glass-border);
+  }
+
+  /* Máscara de desvanecido arriba/abajo en columnas scrolleables. */
+  .scroll-fade {
+    -webkit-mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 14px,
+      #000 calc(100% - 14px),
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 14px,
+      #000 calc(100% - 14px),
+      transparent 100%
+    );
+  }
+}
+
+@layer utilities {
+  .tabnums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Scrollbar discreta para las áreas internas (findings, hoja). */
+  .thin-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+  .thin-scroll::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .thin-scroll::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 9999px;
+  }
+  .thin-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+/* ==========================================================================
+   Keyframes
+   ========================================================================== */
+@keyframes reparo-shimmer {
+  0% {
+    background-position: -160% 0;
+  }
+  100% {
+    background-position: 260% 0;
+  }
+}
+
+@keyframes reparo-aurora {
+  0%,
+  100% {
+    transform: translate3d(-4%, -2%, 0) scale(1.05) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(3%, 4%, 0) scale(1.12) rotate(6deg);
+  }
+  66% {
+    transform: translate3d(2%, -3%, 0) scale(1.08) rotate(-5deg);
+  }
+}
+
+@keyframes reparo-pulse-glow {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  /* El spinner es feedback funcional, no decoración: sigue girando (más lento). */
+  .animate-spin {
+    animation: spin 1s linear infinite !important;
   }
 }

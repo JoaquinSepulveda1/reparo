@@ -1,11 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Trash2, Download } from "lucide-react";
+import Link from "next/link";
+import { AnimatePresence, motion } from "framer-motion";
+import { Trash2, Download, ArrowRight } from "lucide-react";
 import { ScoreRing } from "@/components/analisis/ScoreRing";
 import { DocumentoTexto } from "@/components/analisis/DocumentoTexto";
 import { DocumentoCambios } from "@/components/analisis/DocumentoCambios";
 import { Disclaimer } from "@/components/app/Disclaimer";
+import { Badge } from "@/components/ui/Badge";
+import { Spinner } from "@/components/ui/Spinner";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { cn } from "@/components/ui/cn";
 import { descargarContratoPdf } from "@/lib/contrato/pdf";
 import { listarContratos, eliminarContrato, ApiError, type ContratoGuardado } from "@/lib/api";
 
@@ -14,6 +20,7 @@ export function BibliotecaView() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState("");
 
@@ -42,7 +49,7 @@ export function BibliotecaView() {
   }, []);
 
   async function onEliminar(id: string) {
-    if (!window.confirm("¿Eliminar este análisis de la biblioteca? No se puede deshacer.")) return;
+    setConfirmId(null);
     setDeletingId(id);
     setError("");
     try {
@@ -57,123 +64,178 @@ export function BibliotecaView() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-10">
+    <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <p className="eyebrow mb-2.5">Biblioteca de precedentes</p>
-      <h1 className="mb-2.5 font-serif text-[28px] font-medium">Contratos revisados</h1>
-      <p className="mb-7 max-w-[60ch] text-[14.5px] text-ink-2">
+      <h1 className="mb-2.5 font-serif text-[30px] font-medium">Contratos revisados</h1>
+      <p className="mb-8 max-w-[60ch] text-[14.5px] leading-relaxed text-ink-2">
         Cada análisis guardado acá se usa como referencia en las próximas revisiones: el criterio que
         aceptaste una vez, se aplica de nuevo.
       </p>
 
       {loading && (
-        <p className="flex items-center gap-2 font-mono text-[12px] text-ink-3">
-          <Loader2 size={13} className="animate-spin" /> cargando…
-        </p>
-      )}
-
-      {error && <p className="text-[13px] text-redline">{error}</p>}
-
-      {!loading && !error && contratos.length === 0 && (
-        <div className="border border-dashed border-line p-6 text-center text-[14px] text-ink-3">
-          Todavía no guardaste ningún análisis. Analizá un contrato y usá &quot;Guardar en
-          biblioteca&quot;.
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="rounded-lg border border-line bg-paper-raised p-4">
+              <Skeleton className="mb-3 h-4 w-3/4" />
+              <Skeleton className="mb-4 h-3 w-1/2" />
+              <Skeleton className="h-9 w-9 rounded-full" />
+            </div>
+          ))}
         </div>
       )}
 
-      <div className="flex flex-col gap-3">
-        {contratos.map((c) => {
-          const open = openId === c.id;
-          const aplicadas = c.findings.filter((f) => f.aplicada).length;
-          return (
-            <div key={c.id} className="border border-line bg-paper-raised">
-              <div className="flex items-center gap-3 px-[18px] py-[14px]">
-                <button
-                  onClick={() => setOpenId(open ? null : c.id)}
-                  className="min-w-0 flex-1 text-left"
-                >
-                  <span className="block truncate text-[14px] font-medium text-ink">
-                    {c.nombre_archivo || "Contrato pegado"}
-                  </span>
-                  <span className="mt-0.5 block font-mono text-[10.5px] text-ink-3">
-                    {new Date(c.created_at).toLocaleDateString("es-CL", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                    {" · "}
-                    {aplicadas} de {c.findings.length} cambios aplicados
-                  </span>
-                </button>
-                {c.score_general != null && <ScoreRing score={c.score_general} size={34} />}
-                <button
-                  onClick={() => onEliminar(c.id)}
-                  disabled={deletingId === c.id}
-                  aria-label="Eliminar análisis"
-                  className="p-1 text-ink-3 transition-colors hover:text-redline disabled:opacity-40"
-                >
-                  {deletingId === c.id ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <Trash2 size={15} />
-                  )}
-                </button>
-              </div>
+      {error && (
+        <p className="mb-4 rounded border border-line bg-redline-soft px-3 py-2 text-[13px] text-redline">
+          {error}
+        </p>
+      )}
 
-              {open && (
-                <div className="border-t border-line p-[18px]">
-                  <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="mr-1 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
-                      Descargar PDF
+      {!loading && !error && contratos.length === 0 && (
+        <div className="rounded-lg border border-dashed border-line-strong bg-paper-raised px-6 py-12 text-center">
+          <p className="mb-4 text-[14px] text-ink-3">Todavía no guardaste ningún análisis.</p>
+          <Link
+            href="/"
+            className="inline-flex items-center gap-1.5 rounded bg-ink px-4 py-2.5 font-mono text-[11px] uppercase tracking-[0.05em] text-paper transition-colors hover:bg-accent"
+          >
+            Analizar un contrato <ArrowRight size={13} />
+          </Link>
+        </div>
+      )}
+
+      {!loading && contratos.length > 0 && (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          {contratos.map((c) => {
+            const open = openId === c.id;
+            const aplicadas = c.findings.filter((f) => f.aplicada).length;
+            return (
+              <motion.div
+                key={c.id}
+                layout
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className={cn(
+                  "group flex flex-col rounded-lg border border-line bg-paper-raised p-4 shadow-sm transition-all duration-200 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg",
+                  open && "sm:col-span-2 xl:col-span-3",
+                )}
+              >
+                <div className="flex items-start gap-3">
+                  <button
+                    onClick={() => setOpenId(open ? null : c.id)}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <span className="block truncate text-[14px] font-medium text-ink group-hover:text-accent">
+                      {c.nombre_archivo || "Contrato pegado"}
                     </span>
-                    {(["original", "cambios"] as const).map((tipo) => (
-                      <button
-                        key={tipo}
-                        onClick={() => bajarPdf(c, tipo)}
-                        disabled={pdfBusy === c.id + tipo}
-                        className="flex items-center gap-1.5 rounded-[2px] border border-line px-2.5 py-1 font-mono text-[10.5px] uppercase tracking-[0.04em] text-ink-2 transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
-                      >
-                        {pdfBusy === c.id + tipo ? (
-                          <Loader2 size={12} className="animate-spin" />
-                        ) : (
-                          <Download size={12} />
-                        )}
-                        {tipo === "original" ? "Original" : "Con cambios"}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="grid gap-6 lg:grid-cols-2">
-                  <div>
-                    <p className="mb-1.5 font-mono text-[10px] uppercase text-ink-3">Original</p>
-                    <DocumentoTexto texto={c.texto_original} size="compact" />
-                  </div>
-                  <div>
-                    <p
-                      className="mb-1.5 font-mono text-[10px] uppercase"
-                      style={{ color: "#8C6B2F" }}
-                    >
-                      Con cambios aplicados
-                    </p>
-                    <DocumentoCambios
-                      original={c.texto_original}
-                      size="compact"
-                      cambios={c.findings
-                        .filter((f) => f.aplicada)
-                        .map((f) => ({
-                          excerpt: f.excerpt,
-                          sugerencia: f.sugerencia ?? "",
-                          nueva_redaccion: f.nueva_redaccion,
-                          nivel_riesgo: f.nivel_riesgo,
-                        }))}
-                    />
-                  </div>
-                  </div>
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+                      {new Date(c.created_at).toLocaleDateString("es-CL", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </button>
+                  {c.score_general != null && <ScoreRing score={c.score_general} size={40} />}
                 </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
+
+                <div className="mt-3 flex items-center justify-between">
+                  <Badge variant="soft" tone={aplicadas > 0 ? "brass" : "neutral"}>
+                    {aplicadas}/{c.findings.length} aplicados
+                  </Badge>
+
+                  {confirmId === c.id ? (
+                    <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.04em]">
+                      <span className="text-ink-3">¿Eliminar?</span>
+                      <button
+                        onClick={() => onEliminar(c.id)}
+                        className="rounded-full border border-redline px-2 py-0.5 text-redline hover:bg-redline-soft"
+                      >
+                        Sí
+                      </button>
+                      <button
+                        onClick={() => setConfirmId(null)}
+                        className="rounded-full border border-line px-2 py-0.5 text-ink-3 hover:text-ink"
+                      >
+                        No
+                      </button>
+                    </span>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmId(c.id)}
+                      disabled={deletingId === c.id}
+                      aria-label="Eliminar análisis"
+                      className="grid h-7 w-7 place-items-center rounded text-ink-3 opacity-0 transition-all hover:bg-paper-2 hover:text-redline focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-40"
+                    >
+                      {deletingId === c.id ? <Spinner size={14} /> : <Trash2 size={14} />}
+                    </button>
+                  )}
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {open && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
+                      className="overflow-hidden"
+                    >
+                      <div className="mt-4 border-t border-line pt-4">
+                        <div className="mb-4 flex flex-wrap items-center gap-2">
+                          <span className="mr-1 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+                            Descargar PDF
+                          </span>
+                          {(["original", "cambios"] as const).map((tipo) => (
+                            <button
+                              key={tipo}
+                              onClick={() => bajarPdf(c, tipo)}
+                              disabled={pdfBusy === c.id + tipo}
+                              className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.04em] text-ink-2 transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
+                            >
+                              {pdfBusy === c.id + tipo ? (
+                                <Spinner size={12} />
+                              ) : (
+                                <Download size={12} />
+                              )}
+                              {tipo === "original" ? "Original" : "Con cambios"}
+                            </button>
+                          ))}
+                        </div>
+
+                        <div className="grid gap-6 lg:grid-cols-2">
+                          <div>
+                            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
+                              Original
+                            </p>
+                            <DocumentoTexto texto={c.texto_original} size="compact" />
+                          </div>
+                          <div>
+                            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-eyebrow text-brass">
+                              Con cambios aplicados
+                            </p>
+                            <DocumentoCambios
+                              original={c.texto_original}
+                              size="compact"
+                              cambios={c.findings
+                                .filter((f) => f.aplicada)
+                                .map((f) => ({
+                                  excerpt: f.excerpt,
+                                  sugerencia: f.sugerencia ?? "",
+                                  nueva_redaccion: f.nueva_redaccion,
+                                  nivel_riesgo: f.nivel_riesgo,
+                                }))}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
 
       <Disclaimer className="mt-10" />
     </div>
