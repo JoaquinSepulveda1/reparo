@@ -19,6 +19,8 @@ interface Props {
   /** `compact` = tipografía y márgenes más chicos (modal, biblioteca). */
   size?: "normal" | "compact";
   scrollRef?: React.Ref<HTMLDivElement>;
+  /** Ref al div cuyo textContent == el texto de la página (para mapear selección). */
+  contentRef?: React.Ref<HTMLDivElement>;
   className?: string;
 }
 
@@ -39,6 +41,7 @@ export function HojaDoc({
   children,
   size = "normal",
   scrollRef,
+  contentRef,
   className = "",
 }: Props) {
   const actual = Math.min(Math.max(page, 0), total - 1);
@@ -74,7 +77,9 @@ export function HojaDoc({
           "whitespace-pre-wrap font-serif text-ink-2",
         )}
       >
-        <div className={compact ? "" : "mx-auto max-w-[74ch]"}>{children}</div>
+        <div ref={contentRef} className={compact ? "" : "mx-auto max-w-[74ch]"}>
+          {children}
+        </div>
 
         {total > 1 && (
           <p

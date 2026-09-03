@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getSessionUser } from "@/lib/supabase/session";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,6 +28,9 @@ const bodySchema = z.object({
 
 /** POST /api/contratos → guarda contrato + findings en la biblioteca. */
 export async function POST(req: Request) {
+  const user = await getSessionUser();
+  if (!user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
+
   let json: unknown;
   try {
     json = await req.json();
@@ -52,6 +56,7 @@ export async function POST(req: Request) {
       texto_editado: d.texto_editado ?? null,
       score_general: d.score_general ?? null,
       resumen: d.resumen ?? null,
+      creado_por: user.email,
     })
     .select("id")
     .single();
@@ -93,6 +98,11 @@ interface ContratoConFindings {
   texto_editado: string | null;
   score_general: number | null;
   resumen: string | null;
+  estado: "borrador" | "aprobado";
+  creado_por: string | null;
+  aprobado_por: string | null;
+  aprobado_en: string | null;
+  actualizado_en: string | null;
   findings: Array<{
     id: string;
     excerpt: string;
@@ -112,7 +122,7 @@ export async function GET() {
   const { data, error } = await supabase
     .from("contratos")
     .select(
-      "id, created_at, nombre_archivo, texto_original, texto_editado, score_general, resumen, findings(id, excerpt, categoria, nivel_riesgo, score_riesgo, problema, sugerencia, nueva_redaccion, aplicada)",
+      "id, created_at, nombre_archivo, texto_original, texto_editado, score_general, resumen, estado, creado_por, aprobado_por, aprobado_en, actualizado_en, findings(id, excerpt, categoria, nivel_riesgo, score_riesgo, problema, sugerencia, nueva_redaccion, aplicada)",
     )
     .order("created_at", { ascending: false })
     .returns<ContratoConFindings[]>();

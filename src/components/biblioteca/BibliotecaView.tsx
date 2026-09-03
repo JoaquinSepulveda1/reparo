@@ -1,18 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Download, ArrowRight, Pencil, Check, X } from "lucide-react";
+import { Trash2, ArrowRight, Pencil, Check, X } from "lucide-react";
 import { ScoreRing } from "@/components/analisis/ScoreRing";
-import { DocumentoTexto } from "@/components/analisis/DocumentoTexto";
-import { DocumentoCambios } from "@/components/analisis/DocumentoCambios";
 import { Disclaimer } from "@/components/app/Disclaimer";
 import { Badge } from "@/components/ui/Badge";
 import { Spinner } from "@/components/ui/Spinner";
 import { Skeleton } from "@/components/ui/Skeleton";
-import { cn } from "@/components/ui/cn";
-import { descargarContratoPdf } from "@/lib/contrato/pdf";
+import { hace } from "@/lib/fecha";
 import {
   listarContratos,
   eliminarContrato,
@@ -25,56 +22,11 @@ export function BibliotecaView() {
   const [contratos, setContratos] = useState<ContratoGuardado[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [openId, setOpenId] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [pdfBusy, setPdfBusy] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [renameBusy, setRenameBusy] = useState(false);
-
-  function empezarRename(c: ContratoGuardado) {
-    setRenamingId(c.id);
-    setRenameValue(c.nombre_archivo || "");
-  }
-
-  async function confirmarRename(id: string) {
-    const nombre = renameValue.trim();
-    if (!nombre) {
-      setRenamingId(null);
-      return;
-    }
-    setRenameBusy(true);
-    setError("");
-    try {
-      await renombrarContrato(id, nombre);
-      setContratos((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, nombre_archivo: nombre } : c)),
-      );
-      setRenamingId(null);
-    } catch (e) {
-      setError(e instanceof ApiError ? e.message : "No se pudo renombrar el análisis.");
-    } finally {
-      setRenameBusy(false);
-    }
-  }
-
-  async function bajarPdf(c: ContratoGuardado, tipo: "original" | "cambios") {
-    setPdfBusy(c.id + tipo);
-    setError("");
-    try {
-      await descargarContratoPdf({
-        nombre: c.nombre_archivo || "Contrato",
-        titulo: tipo === "original" ? "Original" : "Con cambios aplicados",
-        texto: tipo === "original" ? c.texto_original : c.texto_editado || c.texto_original,
-        variante: tipo === "original" ? "original" : "con-cambios",
-      });
-    } catch {
-      setError("No se pudo generar el PDF.");
-    } finally {
-      setPdfBusy("");
-    }
-  }
 
   useEffect(() => {
     listarContratos()
@@ -83,6 +35,22 @@ export function BibliotecaView() {
       .finally(() => setLoading(false));
   }, []);
 
+  async function confirmarRename(id: string) {
+    const nombre = renameValue.trim();
+    if (!nombre) return setRenamingId(null);
+    setRenameBusy(true);
+    setError("");
+    try {
+      await renombrarContrato(id, nombre);
+      setContratos((prev) => prev.map((c) => (c.id === id ? { ...c, nombre_archivo: nombre } : c)));
+      setRenamingId(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo renombrar el análisis.");
+    } finally {
+      setRenameBusy(false);
+    }
+  }
+
   async function onEliminar(id: string) {
     setConfirmId(null);
     setDeletingId(id);
@@ -90,7 +58,6 @@ export function BibliotecaView() {
     try {
       await eliminarContrato(id);
       setContratos((prev) => prev.filter((c) => c.id !== id));
-      if (openId === id) setOpenId(null);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : "No se pudo eliminar el análisis.");
     } finally {
@@ -98,13 +65,20 @@ export function BibliotecaView() {
     }
   }
 
+  const { borradores, aprobados } = useMemo(() => {
+    return {
+      borradores: contratos.filter((c) => c.estado !== "aprobado"),
+      aprobados: contratos.filter((c) => c.estado === "aprobado"),
+    };
+  }, [contratos]);
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-10 sm:px-6">
       <p className="eyebrow mb-2.5">Biblioteca de precedentes</p>
       <h1 className="mb-2.5 font-serif text-[30px] font-medium">Contratos revisados</h1>
       <p className="mb-8 max-w-[60ch] text-[14.5px] leading-relaxed text-ink-2">
-        Cada análisis guardado acá se usa como referencia en las próximas revisiones: el criterio que
-        aceptaste una vez, se aplica de nuevo.
+        Cada análisis guardado acá se usa como referencia en las próximas revisiones y se puede
+        editar y comentar en equipo hasta darle el visto bueno.
       </p>
 
       {loading && (
@@ -138,9 +112,80 @@ export function BibliotecaView() {
       )}
 
       {!loading && contratos.length > 0 && (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-8">
+          <Seccion
+            titulo={`Borradores (${borradores.length})`}
+            contratos={borradores}
+            {...{ renamingId, renameValue, renameBusy, confirmId, deletingId }}
+            setRenamingId={setRenamingId}
+            setRenameValue={setRenameValue}
+            confirmarRename={confirmarRename}
+            setConfirmId={setConfirmId}
+            onEliminar={onEliminar}
+          />
+          {aprobados.length > 0 && (
+            <Seccion
+              titulo={`Aprobados (${aprobados.length})`}
+              contratos={aprobados}
+              {...{ renamingId, renameValue, renameBusy, confirmId, deletingId }}
+              setRenamingId={setRenamingId}
+              setRenameValue={setRenameValue}
+              confirmarRename={confirmarRename}
+              setConfirmId={setConfirmId}
+              onEliminar={onEliminar}
+            />
+          )}
+        </div>
+      )}
+
+      <Disclaimer className="mt-10" />
+    </div>
+  );
+}
+
+interface SeccionProps {
+  titulo: string;
+  contratos: ContratoGuardado[];
+  renamingId: string | null;
+  renameValue: string;
+  renameBusy: boolean;
+  confirmId: string | null;
+  deletingId: string | null;
+  setRenamingId: (v: string | null) => void;
+  setRenameValue: (v: string) => void;
+  confirmarRename: (id: string) => void;
+  setConfirmId: (v: string | null) => void;
+  onEliminar: (id: string) => void;
+}
+
+function Seccion({
+  titulo,
+  contratos,
+  renamingId,
+  renameValue,
+  renameBusy,
+  confirmId,
+  deletingId,
+  setRenamingId,
+  setRenameValue,
+  confirmarRename,
+  setConfirmId,
+  onEliminar,
+}: SeccionProps) {
+  if (contratos.length === 0) {
+    return (
+      <div>
+        <p className="eyebrow mb-3 text-ink-3">{titulo}</p>
+        <p className="font-mono text-[11px] text-ink-3">— nada acá todavía —</p>
+      </div>
+    );
+  }
+  return (
+    <div>
+      <p className="eyebrow mb-3 text-ink-3">{titulo}</p>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <AnimatePresence>
           {contratos.map((c) => {
-            const open = openId === c.id;
             const aplicadas = c.findings.filter((f) => f.aplicada).length;
             return (
               <motion.div
@@ -149,10 +194,7 @@ export function BibliotecaView() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className={cn(
-                  "group flex flex-col rounded-lg border border-line bg-paper-raised p-4 shadow-sm transition-all duration-200 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg",
-                  open && "sm:col-span-2 xl:col-span-3",
-                )}
+                className="group flex flex-col rounded-lg border border-line bg-paper-raised p-4 shadow-sm transition-all duration-200 ease-out-expo hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg"
               >
                 <div className="flex items-start gap-3">
                   <div className="min-w-0 flex-1">
@@ -188,14 +230,17 @@ export function BibliotecaView() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => setOpenId(open ? null : c.id)}
-                          className="min-w-0 flex-1 truncate text-left text-[14px] font-medium text-ink group-hover:text-accent"
+                        <Link
+                          href={`/biblioteca/${c.id}`}
+                          className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink group-hover:text-accent"
                         >
                           {c.nombre_archivo || "Contrato pegado"}
-                        </button>
+                        </Link>
                         <button
-                          onClick={() => empezarRename(c)}
+                          onClick={() => {
+                            setRenamingId(c.id);
+                            setRenameValue(c.nombre_archivo || "");
+                          }}
                           aria-label="Renombrar"
                           className="grid h-6 w-6 shrink-0 place-items-center rounded text-ink-3 opacity-0 transition-opacity hover:bg-paper-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
                         >
@@ -204,20 +249,24 @@ export function BibliotecaView() {
                       </div>
                     )}
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
-                      {new Date(c.created_at).toLocaleDateString("es-CL", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {hace(c.created_at)}
+                      {c.creado_por ? ` · ${c.creado_por.split("@")[0]}` : ""}
                     </span>
                   </div>
                   {c.score_general != null && <ScoreRing score={c.score_general} size={40} />}
                 </div>
 
                 <div className="mt-3 flex items-center justify-between">
-                  <Badge variant="soft" tone={aplicadas > 0 ? "brass" : "neutral"}>
-                    {aplicadas}/{c.findings.length} aplicados
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant="soft" tone={c.estado === "aprobado" ? "brass" : "accent"}>
+                      {c.estado === "aprobado" ? "Aprobado" : "Borrador"}
+                    </Badge>
+                    {aplicadas > 0 && (
+                      <Badge variant="soft" tone="neutral">
+                        {aplicadas}/{c.findings.length}
+                      </Badge>
+                    )}
+                  </div>
 
                   {confirmId === c.id ? (
                     <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.04em]">
@@ -246,74 +295,11 @@ export function BibliotecaView() {
                     </button>
                   )}
                 </div>
-
-                <AnimatePresence initial={false}>
-                  {open && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{ duration: 0.24, ease: [0.16, 1, 0.3, 1] }}
-                      className="overflow-hidden"
-                    >
-                      <div className="mt-4 border-t border-line pt-4">
-                        <div className="mb-4 flex flex-wrap items-center gap-2">
-                          <span className="mr-1 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
-                            Descargar PDF
-                          </span>
-                          {(["original", "cambios"] as const).map((tipo) => (
-                            <button
-                              key={tipo}
-                              onClick={() => bajarPdf(c, tipo)}
-                              disabled={pdfBusy === c.id + tipo}
-                              className="flex items-center gap-1.5 rounded-full border border-line px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.04em] text-ink-2 transition-colors hover:border-ink hover:text-ink disabled:opacity-50"
-                            >
-                              {pdfBusy === c.id + tipo ? (
-                                <Spinner size={12} />
-                              ) : (
-                                <Download size={12} />
-                              )}
-                              {tipo === "original" ? "Original" : "Con cambios"}
-                            </button>
-                          ))}
-                        </div>
-
-                        <div className="grid gap-6 lg:grid-cols-2">
-                          <div>
-                            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
-                              Original
-                            </p>
-                            <DocumentoTexto texto={c.texto_original} size="compact" />
-                          </div>
-                          <div>
-                            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-eyebrow text-brass">
-                              Con cambios aplicados
-                            </p>
-                            <DocumentoCambios
-                              original={c.texto_original}
-                              size="compact"
-                              cambios={c.findings
-                                .filter((f) => f.aplicada)
-                                .map((f) => ({
-                                  excerpt: f.excerpt,
-                                  sugerencia: f.sugerencia ?? "",
-                                  nueva_redaccion: f.nueva_redaccion,
-                                  nivel_riesgo: f.nivel_riesgo,
-                                }))}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
               </motion.div>
             );
           })}
-        </div>
-      )}
-
-      <Disclaimer className="mt-10" />
+        </AnimatePresence>
+      </div>
     </div>
   );
 }

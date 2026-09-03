@@ -36,6 +36,8 @@ export interface FindingGuardado extends Finding {
   aplicada: boolean;
 }
 
+export type EstadoContrato = "borrador" | "aprobado";
+
 export interface ContratoGuardado {
   id: string;
   created_at: string;
@@ -44,6 +46,11 @@ export interface ContratoGuardado {
   texto_editado: string | null;
   score_general: number | null;
   resumen: string | null;
+  estado: EstadoContrato;
+  creado_por: string | null;
+  aprobado_por: string | null;
+  aprobado_en: string | null;
+  actualizado_en: string | null;
   findings: FindingGuardado[];
 }
 
@@ -98,16 +105,35 @@ export async function listarContratos(): Promise<ContratoGuardado[]> {
   return (data.contratos ?? []) as ContratoGuardado[];
 }
 
-export async function renombrarContrato(id: string, nombre: string): Promise<void> {
+export interface ContratoPatch {
+  nombre_archivo?: string;
+  texto_editado?: string | null;
+  estado?: EstadoContrato;
+  findings_aplicada?: Array<{ excerpt: string; aplicada: boolean }>;
+}
+
+export async function actualizarContrato(id: string, patch: ContratoPatch): Promise<void> {
   const res = await fetch(`/api/contratos/${id}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ nombre_archivo: nombre }),
+    body: JSON.stringify(patch),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new ApiError(data?.error || "No se pudo renombrar el análisis.", res.status);
+    throw new ApiError(data?.error || "No se pudo actualizar el análisis.", res.status);
   }
+}
+
+export function renombrarContrato(id: string, nombre: string) {
+  return actualizarContrato(id, { nombre_archivo: nombre });
+}
+
+export function aprobarContrato(id: string) {
+  return actualizarContrato(id, { estado: "aprobado" });
+}
+
+export function reabrirContrato(id: string) {
+  return actualizarContrato(id, { estado: "borrador" });
 }
 
 export async function eliminarContrato(id: string): Promise<void> {
@@ -120,4 +146,82 @@ export async function eliminarContrato(id: string): Promise<void> {
 
 export async function logout() {
   await fetch("/api/logout", { method: "POST" });
+}
+
+// --------------------------------------------------------------------------
+// Comentarios
+// --------------------------------------------------------------------------
+
+export interface Comentario {
+  id: string;
+  contrato_id: string;
+  parent_id: string | null;
+  autor_email: string;
+  autor_nombre: string | null;
+  cuerpo: string;
+  rango_inicio: number | null;
+  rango_fin: number | null;
+  excerpt: string | null;
+  resuelto: boolean;
+  resuelto_por: string | null;
+  created_at: string;
+}
+
+export interface NuevoComentario {
+  cuerpo: string;
+  parent_id?: string | null;
+  rango_inicio?: number | null;
+  rango_fin?: number | null;
+  excerpt?: string | null;
+}
+
+export async function listarComentarios(
+  contratoId: string,
+): Promise<{ comentarios: Comentario[]; yo: string }> {
+  const res = await fetch(`/api/contratos/${contratoId}/comentarios`, { cache: "no-store" });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new ApiError(data?.error || "No se pudieron cargar los comentarios.", res.status);
+  }
+  return { comentarios: (data.comentarios ?? []) as Comentario[], yo: data.yo as string };
+}
+
+export async function crearComentario(
+  contratoId: string,
+  body: NuevoComentario,
+): Promise<Comentario> {
+  const res = await fetch(`/api/contratos/${contratoId}/comentarios`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(data?.error || "No se pudo guardar el comentario.", res.status);
+  return data.comentario as Comentario;
+}
+
+export async function resolverComentario(
+  contratoId: string,
+  comentarioId: string,
+  resuelto: boolean,
+): Promise<void> {
+  const res = await fetch(`/api/contratos/${contratoId}/comentarios/${comentarioId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ resuelto }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data?.error || "No se pudo actualizar el comentario.", res.status);
+  }
+}
+
+export async function borrarComentario(contratoId: string, comentarioId: string): Promise<void> {
+  const res = await fetch(`/api/contratos/${contratoId}/comentarios/${comentarioId}`, {
+    method: "DELETE",
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data?.error || "No se pudo borrar el comentario.", res.status);
+  }
 }
