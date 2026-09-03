@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/lib/auth";
+import { createServerSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-/** POST /api/logout → borra la cookie de sesión. */
+/** POST /api/logout → cierra la sesión de Supabase. */
 export async function POST() {
-  const res = NextResponse.json({ ok: true });
-  res.cookies.set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
-  return res;
+  const supabase = await createServerSupabase();
+  await supabase.auth.signOut();
+  return NextResponse.json({ ok: true });
 }

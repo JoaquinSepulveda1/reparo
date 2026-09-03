@@ -1,7 +1,7 @@
 /**
  * Acceso centralizado a variables de entorno del servidor.
- * Importar SOLO desde código server (API routes, server components, middleware).
- * Nada acá lleva prefijo NEXT_PUBLIC_ salvo la URL de Supabase.
+ * Importar SOLO desde código server (API routes, server components, middleware),
+ * salvo las `NEXT_PUBLIC_*` que también sirven en el browser.
  */
 
 function required(name: string): string {
@@ -27,11 +27,22 @@ export const env = {
   geminiModel: () => process.env.GEMINI_MODEL || "gemini-3.6-flash",
 
   supabaseUrl: () => required("NEXT_PUBLIC_SUPABASE_URL"),
+  supabaseAnonKey: () => required("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
   supabaseServiceRoleKey: () => required("SUPABASE_SERVICE_ROLE_KEY"),
 
-  appPassword: () => required("APP_PASSWORD"),
-  sessionSecret: () => required("SESSION_SECRET"),
+  /**
+   * Emails autorizados a entrar (lista blanca), separados por coma.
+   * Vacío o sin definir = nadie entra (falla cerrado).
+   */
+  allowedEmails: (): string[] =>
+    (process.env.ALLOWED_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean),
 };
 
-/** Nombre de la cookie de sesión (contraseña compartida). */
-export const SESSION_COOKIE = "reparo_session";
+export function emailAutorizado(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const lista = env.allowedEmails();
+  return lista.includes(email.trim().toLowerCase());
+}

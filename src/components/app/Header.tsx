@@ -10,6 +10,8 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Kbd } from "@/components/ui/Kbd";
 import { cn } from "@/components/ui/cn";
 import { logout } from "@/lib/api";
+import { useUser } from "@/lib/hooks/useUser";
+import { getSupabaseBrowser } from "@/lib/supabase/browser";
 
 const links = [
   { href: "/", label: "Analizar" },
@@ -23,6 +25,7 @@ function openCommandPalette() {
 export function Header() {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useUser();
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -34,6 +37,11 @@ export function Header() {
 
   async function onLogout() {
     await logout();
+    try {
+      await getSupabaseBrowser().auth.signOut();
+    } catch {
+      /* la cookie ya la limpió el server */
+    }
     router.replace("/login");
   }
 
@@ -87,6 +95,15 @@ export function Header() {
           </button>
 
           <ThemeToggle />
+
+          {user && (
+            <span
+              className="ml-1 hidden max-w-[140px] truncate font-mono text-[10px] lowercase tracking-eyebrow text-ink-3 md:inline"
+              title={user.email}
+            >
+              {user.email}
+            </span>
+          )}
 
           <button
             onClick={onLogout}
