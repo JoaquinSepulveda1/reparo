@@ -35,11 +35,21 @@ export async function middleware(req: NextRequest) {
     },
   );
 
+  const { pathname } = req.nextUrl;
+
+  // Supabase a veces redirige el magic link a la Site URL ("/") en vez de a
+  // /auth/callback. Si vemos un ?code= suelto, lo mandamos al callback.
+  const code = req.nextUrl.searchParams.get("code");
+  if (code && pathname !== "/auth/callback") {
+    const url = req.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { pathname } = req.nextUrl;
   const autenticado = !!user && emailAutorizado(user.email);
 
   if (esPublica(pathname)) {
