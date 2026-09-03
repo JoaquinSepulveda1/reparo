@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, ArrowRight } from "lucide-react";
 import { textoDeReemplazo, type Segment } from "@/lib/contrato/matching";
@@ -45,6 +45,11 @@ export function DocumentoConHighlights({
   const total = segmentosPagina.length;
   const actual = Math.min(page, total - 1);
   const segments = segmentosPagina[actual] ?? [];
+
+  const miniaturas = useMemo(
+    () => segmentosPagina.map((segs) => segs.map((s) => s.content).join("")),
+    [segmentosPagina],
+  );
 
   const riesgoPagina = segmentosPagina.map((segs) => {
     let peor: "alto" | "medio" | "bajo" | null = null;
@@ -91,7 +96,13 @@ export function DocumentoConHighlights({
 
   return (
     <>
-      <HojaDoc page={actual} total={total} onPageChange={onPageChange} riesgoPagina={riesgoPagina}>
+      <HojaDoc
+        page={actual}
+        total={total}
+        onPageChange={onPageChange}
+        riesgoPagina={riesgoPagina}
+        miniaturas={miniaturas}
+      >
         {segments.map((seg, i) => {
           if (seg.type === "text") return <span key={i}>{seg.content}</span>;
 

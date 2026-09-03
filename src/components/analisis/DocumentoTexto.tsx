@@ -19,12 +19,17 @@ export function DocumentoTexto({ texto, size = "normal", className }: Props) {
   const paginas = useMemo(() => paginar(texto), [texto]);
   const actual = Math.min(page, paginas.length - 1);
   const pag = paginas[actual] ?? { start: 0, end: texto.length };
+  const miniaturas = useMemo(
+    () => paginas.map((p) => texto.slice(p.start, p.end)),
+    [paginas, texto],
+  );
 
   return (
     <HojaDoc
       page={actual}
       total={paginas.length}
       onPageChange={setPage}
+      miniaturas={miniaturas}
       size={size}
       className={className}
     >

@@ -30,6 +30,10 @@ export function DocumentoCambios({ original, cambios, size = "normal", className
     () => segmentosPorPagina(segments, paginas),
     [segments, paginas],
   );
+  const miniaturas = useMemo(
+    () => paginas.map((p) => original.slice(p.start, p.end)),
+    [paginas, original],
+  );
   const actual = Math.min(page, porPagina.length - 1);
 
   return (
@@ -37,6 +41,7 @@ export function DocumentoCambios({ original, cambios, size = "normal", className
       page={actual}
       total={porPagina.length}
       onPageChange={setPage}
+      miniaturas={miniaturas}
       size={size}
       className={className}
     >
