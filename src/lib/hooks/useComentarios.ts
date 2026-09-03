@@ -69,9 +69,11 @@ export function useComentarios(contratoId: string | null) {
   }, [contratoId, refetch]);
 
   const crear = useCallback(
-    async (body: NuevoComentario) => {
-      const id = idRef.current;
+    async (body: NuevoComentario, idOverride?: string) => {
+      const id = idOverride ?? idRef.current;
       if (!id) throw new Error("Guardá el análisis antes de comentar.");
+      // Si el id recién se creó (auto-guardado), adelantamos el ref para el poll.
+      if (idOverride) idRef.current = idOverride;
       const nuevo = await crearComentario(id, body);
       setComentarios((prev) => [...prev, nuevo]);
       return nuevo;

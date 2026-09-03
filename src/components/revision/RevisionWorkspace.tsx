@@ -178,13 +178,16 @@ export function RevisionWorkspace({
   async function enviarComentario(cuerpo: string) {
     setGuardandoComentario(true);
     try {
-      await ensureContrato();
-      await crear({
-        cuerpo,
-        rango_inicio: seleccion?.inicio ?? null,
-        rango_fin: seleccion?.fin ?? null,
-        excerpt: seleccion?.texto ?? null,
-      });
+      const id = await ensureContrato();
+      await crear(
+        {
+          cuerpo,
+          rango_inicio: seleccion?.inicio ?? null,
+          rango_fin: seleccion?.fin ?? null,
+          excerpt: seleccion?.texto ?? null,
+        },
+        id,
+      );
       setSeleccion(null);
       setGeneral(false);
       limpiarSeleccion();
@@ -449,7 +452,7 @@ export function RevisionWorkspace({
             if (h.raiz.rango_inicio != null) irAlAncla(h.raiz.rango_inicio);
           }}
           onResponder={(raizId, cuerpo) =>
-            ensureContrato().then(() => crear({ cuerpo, parent_id: raizId }))
+            ensureContrato().then((id) => crear({ cuerpo, parent_id: raizId }, id))
           }
           onResolver={resolver}
           onBorrar={borrar}
