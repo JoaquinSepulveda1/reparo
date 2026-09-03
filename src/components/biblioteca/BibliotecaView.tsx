@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
-import { Trash2, Download, ArrowRight } from "lucide-react";
+import { Trash2, Download, ArrowRight, Pencil, Check, X } from "lucide-react";
 import { ScoreRing } from "@/components/analisis/ScoreRing";
 import { DocumentoTexto } from "@/components/analisis/DocumentoTexto";
 import { DocumentoCambios } from "@/components/analisis/DocumentoCambios";
@@ -13,7 +13,13 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { cn } from "@/components/ui/cn";
 import { descargarContratoPdf } from "@/lib/contrato/pdf";
-import { listarContratos, eliminarContrato, ApiError, type ContratoGuardado } from "@/lib/api";
+import {
+  listarContratos,
+  eliminarContrato,
+  renombrarContrato,
+  ApiError,
+  type ContratoGuardado,
+} from "@/lib/api";
 
 export function BibliotecaView() {
   const [contratos, setContratos] = useState<ContratoGuardado[]>([]);
@@ -23,6 +29,35 @@ export function BibliotecaView() {
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [pdfBusy, setPdfBusy] = useState("");
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [renameBusy, setRenameBusy] = useState(false);
+
+  function empezarRename(c: ContratoGuardado) {
+    setRenamingId(c.id);
+    setRenameValue(c.nombre_archivo || "");
+  }
+
+  async function confirmarRename(id: string) {
+    const nombre = renameValue.trim();
+    if (!nombre) {
+      setRenamingId(null);
+      return;
+    }
+    setRenameBusy(true);
+    setError("");
+    try {
+      await renombrarContrato(id, nombre);
+      setContratos((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, nombre_archivo: nombre } : c)),
+      );
+      setRenamingId(null);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : "No se pudo renombrar el análisis.");
+    } finally {
+      setRenameBusy(false);
+    }
+  }
 
   async function bajarPdf(c: ContratoGuardado, tipo: "original" | "cambios") {
     setPdfBusy(c.id + tipo);
@@ -120,13 +155,54 @@ export function BibliotecaView() {
                 )}
               >
                 <div className="flex items-start gap-3">
-                  <button
-                    onClick={() => setOpenId(open ? null : c.id)}
-                    className="min-w-0 flex-1 text-left"
-                  >
-                    <span className="block truncate text-[14px] font-medium text-ink group-hover:text-accent">
-                      {c.nombre_archivo || "Contrato pegado"}
-                    </span>
+                  <div className="min-w-0 flex-1">
+                    {renamingId === c.id ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={renameValue}
+                          onChange={(e) => setRenameValue(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") confirmarRename(c.id);
+                            if (e.key === "Escape") setRenamingId(null);
+                          }}
+                          disabled={renameBusy}
+                          className="min-w-0 flex-1 rounded border border-line bg-paper px-2 py-1 text-[13.5px] text-ink outline-none focus:border-ink-3 disabled:opacity-60"
+                        />
+                        <button
+                          onClick={() => confirmarRename(c.id)}
+                          disabled={renameBusy}
+                          aria-label="Guardar nombre"
+                          className="grid h-6 w-6 shrink-0 place-items-center rounded text-ink-3 hover:text-ink"
+                        >
+                          {renameBusy ? <Spinner size={12} /> : <Check size={13} />}
+                        </button>
+                        <button
+                          onClick={() => setRenamingId(null)}
+                          disabled={renameBusy}
+                          aria-label="Cancelar"
+                          className="grid h-6 w-6 shrink-0 place-items-center rounded text-ink-3 hover:text-ink"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setOpenId(open ? null : c.id)}
+                          className="min-w-0 flex-1 truncate text-left text-[14px] font-medium text-ink group-hover:text-accent"
+                        >
+                          {c.nombre_archivo || "Contrato pegado"}
+                        </button>
+                        <button
+                          onClick={() => empezarRename(c)}
+                          aria-label="Renombrar"
+                          className="grid h-6 w-6 shrink-0 place-items-center rounded text-ink-3 opacity-0 transition-opacity hover:bg-paper-2 hover:text-ink focus-visible:opacity-100 group-hover:opacity-100"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </div>
+                    )}
                     <span className="mt-1 block font-mono text-[10px] uppercase tracking-eyebrow text-ink-3">
                       {new Date(c.created_at).toLocaleDateString("es-CL", {
                         day: "2-digit",
@@ -134,7 +210,7 @@ export function BibliotecaView() {
                         year: "numeric",
                       })}
                     </span>
-                  </button>
+                  </div>
                   {c.score_general != null && <ScoreRing score={c.score_general} size={40} />}
                 </div>
 

@@ -98,6 +98,18 @@ export async function listarContratos(): Promise<ContratoGuardado[]> {
   return (data.contratos ?? []) as ContratoGuardado[];
 }
 
+export async function renombrarContrato(id: string, nombre: string): Promise<void> {
+  const res = await fetch(`/api/contratos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ nombre_archivo: nombre }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new ApiError(data?.error || "No se pudo renombrar el análisis.", res.status);
+  }
+}
+
 export async function eliminarContrato(id: string): Promise<void> {
   const res = await fetch(`/api/contratos/${id}`, { method: "DELETE" });
   if (!res.ok) {
